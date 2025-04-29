@@ -1,0 +1,98 @@
+---
+subtitle: "Wohnungsbestand und Leerwohnungen im Jahr `r params$jahr`"
+format: html
+execute:
+  echo: true
+  warning: false
+params:
+  jahr: 2020
+  bfs_nr: 261
+editor_options: 
+  chunk_output_type: console
+---
+
+Der Bericht enthält eine Visualisierung der Daten erstellt mittels R package `ggplot2` und einer zusammenfassende Tabelle erstellt mit R package `gt` basierend auf einer deskriptiven Analyse (z.B. Mittelwert, Standardabweichung, Median, etc.).
+
+```{r}
+# source() erlaubt es uns, Code aus einer anderen Datei zu laden
+source(here::here("analyse/01-daten-aufbereitung.R"))
+source(here::here("analyse/02-bfs-nummern-lesen.R"))
+
+# Code um den Namen der Gemeinde mittels des Parameter zu erhalten
+gemeinde_name <- gemeinde_bfs_nr |> 
+  filter(bfs_nr == params$bfs_nr) |> 
+  pull(gebiet_name) 
+
+# Code um die Daten für die Gemeinde mittels des Parameter zu erhalten
+daten_in <- leerwohungen_wohnungsbestand |> 
+  filter(bfs_nr == params$bfs_nr) 
+```
+
+---
+title:  "Bericht für Gemeinde `r gemeinde_name`"
+---
+
+# Daten Tranformation
+
+```{r}
+daten_in_prozent <- daten_in |> 
+  group_by(indikator_jahr, indikator_id, indikator_name) |> 
+  summarise(
+    summe = sum(indikator_value)
+  ) |> 
+  group_by(indikator_jahr) |> 
+  mutate(prozent = summe / sum(summe) * 100) |> 
+  mutate(rate = summe / lead(summe)) |> 
+  ungroup()
+```
+
+# Visualisierung
+
+```{r}
+# Code für inline code
+
+# Code um die summe der Leerwohnungen in einem bestimmen Jahr zu erhalten
+leerwohungen_anzahl <- daten_in_prozent |> 
+  filter(indikator_jahr == params$jahr) |> 
+  filter(indikator_id == 381) |> 
+  pull(summe)
+
+# Code um die Leerwohnungsrate in einem bestimmen Jahr zu erhalten
+rate <- daten_in_prozent |> 
+  filter(indikator_jahr == params$jahr) |> 
+  filter(indikator_id == 140) |> 
+  pull(rate)
+``` 
+
+Der Leerwohnungsbestand in `r gemeinde_name` im Jahr `r params$jahr` beträgt `r leerwohungen_anzahl`. Pro `r round(rate, 0)` Wohnungen, ist eine Wohnung leer.
+
+```{r}
+ggplot(data = daten_in_prozent, 
+                   mapping = aes(x = indikator_jahr, 
+                                 y = summe, 
+                                 fill = indikator_name)) +
+  geom_col() +
+  facet_wrap(~indikator_name, scales = "free_y") +
+  labs(title = paste("Wohnungsbestand und Leerwohnungen in", gemeinde_name),
+       x = "Jahr",
+       y = "Anzahl",
+       fill = "Indikator",
+       caption = "Daten: zh.ch/daten") +
+  theme(legend.position = "bottom")
+```
+
+# Tabelle
+
+```{r}
+daten_in |> 
+  group_by(indikator_jahr, indikator_name) |> 
+  summarise(
+    sum = sum(indikator_value)
+  ) |> 
+  mutate(prozent = sum / sum(sum) * 100) |> 
+  ungroup() |> 
+  gt::gt() |> 
+  gt::fmt_number(columns = vars(sum), decimals = 0) |>
+  gt::fmt_number(columns = vars(prozent), decimals = 1) |>
+  gt::tab_header(title = paste("Zusammenfassung für Gemeinde", gemeinde_name)) 
+```
