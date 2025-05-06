@@ -27,23 +27,23 @@ leerwohungen <- read_delim("https://www.web.statistik.zh.ch/ogd/data/KANTON_ZUER
 # Daten transformieren ----------------------------------------------------
 
 wohnungsbestand_klein <- wohnungsbestand |> 
-  # Beschreibung....
+  # Eine Auswahl von Spalten aus "wohnungsbestand" auswählen, neu anordnen und als neue Tabelle speichern
   select(bfs_nr, gebiet_name, indikator_name, indikator_id, 
          indikator_jahr, indikator_value)
 
 leerwohungen_klein <-  leerwohungen |> 
-  # Beschreibung....
+  # dito für Tabelle "leerwohnungen"
   select(bfs_nr, gebiet_name, indikator_name, indikator_id,
          indikator_jahr, indikator_value)
 
 leerwohungen_wohnungsbestand <- wohnungsbestand_klein |> 
-  # Beschreibung....
+  # die Zeilen beider Tabellen in einer neuen Tabelle aneinanderhängen. Gleiche Spaltennamen (in diesem Fall alle Spalten) zu einer längeren Spalte zusammengeführt
   bind_rows(leerwohungen_klein) |> 
-  # Beschreibung....
+  # nur Zeilen, die aus den Jahren vor 2024 stammen
   filter(indikator_jahr < 2024) |> 
-  # Beschreibung....
+  # Gebietseinheiten grösser als Gemeinden entfernen. Diese weisen bfs_nr Null auf.
   filter(bfs_nr != 0) |>
-  # Beschreibung....
+  # Zeilen entfernen, die den String "bis" im Gemeindenamen haben. Dies wurde gemacht bei Gemeindefusionen
   filter(!str_detect(gebiet_name, "bis"))
 
 # Daten speichern ----------------------------------------------------------
